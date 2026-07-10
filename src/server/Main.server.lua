@@ -12,6 +12,8 @@ local ClickService = require(script.Parent.ClickService)
 local UpgradeService = require(script.Parent.UpgradeService)
 local CharacterService = require(script.Parent.CharacterService)
 local StageService = require(script.Parent.StageService)
+local RebirthService = require(script.Parent.RebirthService)
+local PetService = require(script.Parent.PetService)
 local DebugBridge = require(script.Parent.DebugBridge)
 
 DataManager.Init()
@@ -21,6 +23,8 @@ ClickService.Init()
 UpgradeService.Init()
 CharacterService.Init()
 StageService.Init()
+RebirthService.Init()
+PetService.Init()
 
 -- ---------------------------------------------------------------------------
 -- Acoes de teste, so no Studio (DebugBridge nao se instala em producao).
@@ -107,6 +111,19 @@ end)
 DebugBridge.Register("clickDamage", function(player: Player)
 	return GameConfig.GetClickDamage(DataManager.Get(player))
 end)
+DebugBridge.Register("rebirth", function(player: Player)
+	local ok, err = RebirthService.Rebirth(player)
+	return { ok = ok, err = err }
+end)
+DebugBridge.Register("openPetEgg", function(player: Player)
+	local ok, petId, wasDuplicate = PetService.OpenEgg(player)
+	return { ok = ok, petId = petId, wasDuplicate = wasDuplicate }
+end)
+DebugBridge.Register("equipPet", function(player: Player, petId: string)
+	local ok, err = PetService.Equip(player, petId)
+	return { ok = ok, err = err }
+end)
+
 DebugBridge.Register("position", function(player: Player)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")

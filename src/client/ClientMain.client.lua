@@ -8,6 +8,8 @@ require(controllers.EnemyVisuals).Init()
 require(controllers.StageController).Init()
 require(controllers.ShopController).Init()
 require(controllers.CharacterShopController).Init()
+require(controllers.RebirthController).Init()
+require(controllers.PetShopController).Init()
 require(controllers.ClickController).Init()
 
 print("[ClientMain] Cliente pronto.")

@@ -200,6 +200,75 @@ GameConfig.CharacterShop = {
 	promptMaxActivationDistance = 10, -- precisa chegar perto do pedestal, nao da pra comprar de longe
 }
 
+-- ---------------------------------------------------------------------------
+-- Renascer: reseta dinheiro/upgrades/estagio por um multiplicador permanente.
+-- Vitorias NUNCA se gastam, entao a exigencia cresce a cada renascida —
+-- senao, depois da primeira, toda renascida seguinte seria de graca.
+-- ---------------------------------------------------------------------------
+GameConfig.Rebirth = {
+	baseWinsRequired = 25, -- vitorias exigidas pra 1a renascida
+	growth = 2, -- cada renascida seguinte exige o dobro da anterior
+	bonusPerRebirth = 0.25, -- +25% de poder permanente por renascida
+}
+
+-- Altar fisico no Lobby: entre o pad de spawn (-18) e a loja de personagens
+-- (+6), um unico objeto (nao um por item, como a loja de personagens).
+GameConfig.RebirthAltar = {
+	offsetZ = -6, -- relativo a Lobby.centerZ
+	baseSize = Vector3.new(8, 1.5, 8),
+	obeliskSize = Vector3.new(3, 12, 3), -- coluna alta e fina: identidade visual distinta dos pedestais
+	promptHoldSeconds = 1.5, -- reset e mais "serio" que uma compra normal
+	promptMaxActivationDistance = 12,
+}
+
+-- ---------------------------------------------------------------------------
+-- Pets: obtidos abrindo um ovo aleatorio (comprado com dinheiro). So um
+-- equipado por vez, igual personagem — sem coleção que empilha bonus.
+-- ---------------------------------------------------------------------------
+GameConfig.Pets = {
+	TungTungSahur = {
+		displayName = "Tung Tung Tung Sahur",
+		weight = 70, -- comum
+		bonusType = "damage",
+		bonusMultiplier = 1.10,
+		color = Color3.fromRGB(150, 110, 70),
+		order = 1,
+	},
+	LiriliLarila = {
+		displayName = "Lirili Larila",
+		weight = 25, -- incomum
+		bonusType = "money",
+		bonusMultiplier = 1.25,
+		color = Color3.fromRGB(90, 200, 170),
+		order = 2,
+	},
+	BombardiroCrocodilo = {
+		displayName = "Bombardiro Crocodilo",
+		weight = 5, -- raro
+		bonusType = "damage",
+		bonusMultiplier = 1.50,
+		color = Color3.fromRGB(60, 140, 60),
+		order = 3,
+	},
+}
+
+GameConfig.PetEgg = {
+	cost = 500, -- em dinheiro
+	duplicateRefundFraction = 0.5, -- pet repetido devolve metade do custo, nunca e uma acao sem efeito
+}
+
+-- Ninho fisico no Lobby, fora das colunas da loja de personagens (+-18),
+-- dentro dos muros (+-40). Um unico objeto: a posse e aleatoria, entao um
+-- pedestal por pet ficaria com a maioria vazia/bloqueada.
+GameConfig.PetShop = {
+	offsetX = 30,
+	offsetZ = 12, -- relativo a Lobby.centerZ
+	nestSize = Vector3.new(6, 1.5, 6),
+	eggSize = Vector3.new(3, 4, 3),
+	promptHoldSeconds = 1,
+	promptMaxActivationDistance = 10,
+}
+
 function GameConfig.GetLobbySpawn(): Vector3
 	local top = GameConfig.Lobby.size.Y / 2
 	return Vector3.new(0, top + 3, GameConfig.Lobby.centerZ + GameConfig.Lobby.spawnOffsetZ)
@@ -257,23 +326,70 @@ function GameConfig.GetCharacterMultiplier(characterId: string?): number
 	return cfg and cfg.multiplier or 1
 end
 
--- Dano de um clique = (1 + nivel * 2) * multiplicador do personagem equipado.
+-- Vitorias exigidas para a PROXIMA renascida, dado quantas ja foram feitas.
+-- Cresce geometricamente pelo mesmo motivo do custo de upgrade (ver
+-- GetUpgradeCost): sem crescer, toda renascida depois da primeira seria de
+-- graca, ja que vitoria nunca se gasta.
+function GameConfig.GetRebirthRequirement(rebirths: number): number
+	return math.floor(GameConfig.Rebirth.baseWinsRequired * (GameConfig.Rebirth.growth ^ rebirths))
+end
+
+-- Multiplicador permanente de renascida. Ao contrario do personagem (que so
+-- premia o clique ativo), e um bonus de poder geral: entra em clique,
+-- automatico e dinheiro por igual.
+function GameConfig.GetRebirthMultiplier(data): number
+	return 1 + (data.rebirths or 0) * GameConfig.Rebirth.bonusPerRebirth
+end
+
+-- Bonus do pet equipado, se o tipo dele bater com `kind` ("damage" ou
+-- "money"). Igual a renascida, se aplica de forma ampla (nao so ao clique).
+function GameConfig.GetPetMultiplier(data, kind: string): number
+	local cfg = data.equippedPet and GameConfig.Pets[data.equippedPet]
+	if cfg and cfg.bonusType == kind then
+		return cfg.bonusMultiplier
+	end
+	return 1
+end
+
+-- Sorteio ponderado pelos pesos em GameConfig.Pets.
+function GameConfig.RollPet(): string
+	local total = 0
+	for _, cfg in pairs(GameConfig.Pets) do
+		total += cfg.weight
+	end
+	local roll = math.random() * total
+	local cursor = 0
+	for id, cfg in pairs(GameConfig.Pets) do
+		cursor += cfg.weight
+		if roll <= cursor then
+			return id
+		end
+	end
+	return (next(GameConfig.Pets)) -- guarda-chuva de ponto flutuante
+end
+
+-- Dano de um clique = (1 + nivel * 2) * multiplicador do personagem equipado
+-- * multiplicador de renascida * bonus de dano do pet equipado.
 function GameConfig.GetClickDamage(data): number
 	local level = data.upgrades.clickDamage or 0
 	local base = 1 + level * GameConfig.Upgrades.clickDamage.perLevel
 	return base * GameConfig.GetCharacterMultiplier(data.equipped)
+		* GameConfig.GetRebirthMultiplier(data) * GameConfig.GetPetMultiplier(data, "damage")
 end
 
 -- Dano automatico por segundo. Nao escala com personagem (de proposito:
--- o personagem premia o clique ativo, nao o AFK).
+-- o personagem premia o clique ativo, nao o AFK) — mas renascida e pet
+-- entram, porque sao bonus de poder geral, nao premio de habilidade.
 function GameConfig.GetAutoDamage(data): number
 	local level = data.upgrades.autoDamage or 0
 	return level * GameConfig.Upgrades.autoDamage.perLevel
+		* GameConfig.GetRebirthMultiplier(data) * GameConfig.GetPetMultiplier(data, "damage")
 end
 
 function GameConfig.GetMoneyMultiplier(data): number
 	local level = data.upgrades.moneyMult or 0
-	return 1 + level * GameConfig.Upgrades.moneyMult.perLevel
+	return (1 + level * GameConfig.Upgrades.moneyMult.perLevel)
+		* GameConfig.GetRebirthMultiplier(data) * GameConfig.GetPetMultiplier(data, "money")
 end
 
 function GameConfig.GetKillReward(stageIndex: number, data): number
@@ -304,6 +420,9 @@ function GameConfig.DefaultData()
 		-- Chaves STRING de proposito: o DataStore rejeita array esparso
 		-- (um jogador so no estagio 2 geraria {[2]=5}, que nao serializa).
 		stageProgress = { ["1"] = 0 },
+		rebirths = 0,
+		pets = {},
+		equippedPet = nil,
 	}
 end
 
@@ -320,6 +439,9 @@ GameConfig.Remotes = {
 	BuyUpgrade = "BuyUpgrade",
 	BuyCharacter = "BuyCharacter",
 	EquipCharacter = "EquipCharacter",
+	Rebirth = "Rebirth",
+	OpenPetEgg = "OpenPetEgg",
+	EquipPet = "EquipPet",
 	-- O cliente puxa o estado inicial. O StateChanged que o servidor dispara no
 	-- PlayerAdded pode chegar antes de os controllers conectarem, e se perde.
 	GetState = "GetState",

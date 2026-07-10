@@ -83,6 +83,9 @@ function DataManager.GetSnapshot(player: Player)
 		characters = table.clone(data.characters),
 		equipped = data.equipped,
 		stageProgress = table.clone(data.stageProgress),
+		rebirths = data.rebirths,
+		pets = table.clone(data.pets),
+		equippedPet = data.equippedPet,
 	}
 end
 

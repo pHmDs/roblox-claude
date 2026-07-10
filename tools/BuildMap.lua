@@ -444,6 +444,147 @@ end
 table.insert(created, ("Loja de personagens: %d pedestais no lobby, z~=%d"):format(#stallIds, LOBBY.centerZ + SHOP.rowOffsetZ))
 
 -- ---------------------------------------------------------------------------
+-- Altar de renascimento: objeto unico no Lobby (nao um por item, como a
+-- loja de personagens), entre o pad de spawn e a loja de personagens.
+-- ---------------------------------------------------------------------------
+
+local ALTAR = GameConfig.RebirthAltar
+
+local function buildRebirthAltar(position: Vector3): Model
+	local model = Instance.new("Model")
+	model.Name = "RebirthAltar"
+
+	local base = newPart({
+		Name = "Base",
+		Size = ALTAR.baseSize,
+		Position = position + Vector3.new(0, ALTAR.baseSize.Y / 2, 0),
+		Color = Color3.fromRGB(70, 60, 90),
+		Material = Enum.Material.Marble,
+		CanCollide = true,
+	})
+	base.Parent = model
+
+	local obeliskY = position.Y + ALTAR.baseSize.Y + ALTAR.obeliskSize.Y / 2
+	local obelisk = newPart({
+		Name = "Obelisk",
+		Size = ALTAR.obeliskSize,
+		Position = Vector3.new(position.X, obeliskY, position.Z),
+		Color = Color3.fromRGB(160, 90, 230),
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+	})
+	obelisk.Parent = model
+
+	model.PrimaryPart = base
+
+	local nameplate = Instance.new("BillboardGui")
+	nameplate.Name = "Nameplate"
+	nameplate.Size = UDim2.fromOffset(220, 30)
+	nameplate.StudsOffsetWorldSpace = Vector3.new(0, ALTAR.baseSize.Y + ALTAR.obeliskSize.Y + 2, 0)
+	nameplate.AlwaysOnTop = true
+	nameplate.MaxDistance = 110
+	nameplate.Parent = base
+
+	local label = Instance.new("TextLabel")
+	label.Name = "Text"
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 15
+	label.TextColor3 = Color3.fromRGB(230, 210, 255)
+	label.TextStrokeTransparency = 0.2
+	label.Text = "Altar de Renascimento"
+	label.Parent = nameplate
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "RebirthPrompt"
+	prompt.HoldDuration = ALTAR.promptHoldSeconds
+	prompt.MaxActivationDistance = ALTAR.promptMaxActivationDistance
+	prompt.RequiresLineOfSight = false
+	prompt.ObjectText = "Altar de Renascimento"
+	prompt.ActionText = "Interagir"
+	prompt.Parent = base
+
+	return model
+end
+
+local altarPosition = Vector3.new(0, lobbyTop, LOBBY.centerZ + ALTAR.offsetZ)
+buildRebirthAltar(altarPosition).Parent = lobbyFolder
+
+table.insert(created, ("Altar de renascimento: z=%d"):format(altarPosition.Z))
+
+-- ---------------------------------------------------------------------------
+-- Ninho de pets: objeto unico no Lobby, fora das colunas da loja de
+-- personagens, dentro dos muros. Posse e aleatoria, entao um pedestal por
+-- pet ficaria com a maioria vazia/bloqueada.
+-- ---------------------------------------------------------------------------
+
+local PETSHOP = GameConfig.PetShop
+
+local function buildPetNest(position: Vector3): Model
+	local model = Instance.new("Model")
+	model.Name = "PetShop"
+
+	local nest = newPart({
+		Name = "Nest",
+		Size = PETSHOP.nestSize,
+		Position = position + Vector3.new(0, PETSHOP.nestSize.Y / 2, 0),
+		Color = Color3.fromRGB(120, 85, 50),
+		Material = Enum.Material.Wood,
+		CanCollide = true,
+	})
+	nest.Parent = model
+
+	local eggY = position.Y + PETSHOP.nestSize.Y + PETSHOP.eggSize.Y / 2
+	local egg = newPart({
+		Name = "Egg",
+		Size = PETSHOP.eggSize,
+		Position = Vector3.new(position.X, eggY, position.Z),
+		Color = Color3.fromRGB(240, 220, 180),
+		Material = Enum.Material.SmoothPlastic,
+		CanCollide = false,
+	})
+	egg.Parent = model
+
+	model.PrimaryPart = nest
+
+	local nameplate = Instance.new("BillboardGui")
+	nameplate.Name = "Nameplate"
+	nameplate.Size = UDim2.fromOffset(180, 30)
+	nameplate.StudsOffsetWorldSpace = Vector3.new(0, PETSHOP.nestSize.Y + PETSHOP.eggSize.Y + 1.5, 0)
+	nameplate.AlwaysOnTop = true
+	nameplate.MaxDistance = 90
+	nameplate.Parent = nest
+
+	local label = Instance.new("TextLabel")
+	label.Name = "Text"
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 14
+	label.TextColor3 = Color3.fromRGB(255, 240, 210)
+	label.TextStrokeTransparency = 0.2
+	label.Text = "Ovo de Pet"
+	label.Parent = nameplate
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "EggPrompt"
+	prompt.HoldDuration = PETSHOP.promptHoldSeconds
+	prompt.MaxActivationDistance = PETSHOP.promptMaxActivationDistance
+	prompt.RequiresLineOfSight = false
+	prompt.ObjectText = "Ovo de Pet"
+	prompt.ActionText = "Interagir"
+	prompt.Parent = nest
+
+	return model
+end
+
+local petShopPosition = Vector3.new(PETSHOP.offsetX, lobbyTop, LOBBY.centerZ + PETSHOP.offsetZ)
+buildPetNest(petShopPosition).Parent = lobbyFolder
+
+table.insert(created, ("Ninho de pets: x=%d, z=%d"):format(petShopPosition.X, petShopPosition.Z))
+
+-- ---------------------------------------------------------------------------
 -- Ponte + muros.
 --
 -- Sem isto o mapa tem um buraco de design: as plataformas ficam a 40 studs uma

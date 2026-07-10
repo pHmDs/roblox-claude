@@ -74,7 +74,7 @@ local function buildRightCorner(gui: ScreenGui)
 	panel.Name = "Right"
 	panel.AnchorPoint = Vector2.new(1, 0)
 	panel.Position = UDim2.new(1, -16, 0, 14)
-	panel.Size = UDim2.fromOffset(190, 62)
+	panel.Size = UDim2.fromOffset(190, 96)
 	panel.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
 	panel.BackgroundTransparency = 0.3
 	panel.BorderSizePixel = 0
@@ -115,6 +115,30 @@ local function buildRightCorner(gui: ScreenGui)
 	damage.TextStrokeTransparency = 0.7
 	damage.Parent = panel
 	ui.damage = damage
+
+	local rebirth = Instance.new("TextLabel")
+	rebirth.LayoutOrder = 3
+	rebirth.Size = UDim2.new(1, 0, 0, 16)
+	rebirth.BackgroundTransparency = 1
+	rebirth.Font = Enum.Font.Gotham
+	rebirth.TextSize = 12
+	rebirth.TextXAlignment = Enum.TextXAlignment.Right
+	rebirth.TextColor3 = Color3.fromRGB(200, 150, 255)
+	rebirth.TextStrokeTransparency = 0.7
+	rebirth.Parent = panel
+	ui.rebirth = rebirth
+
+	local pet = Instance.new("TextLabel")
+	pet.LayoutOrder = 4
+	pet.Size = UDim2.new(1, 0, 0, 16)
+	pet.BackgroundTransparency = 1
+	pet.Font = Enum.Font.Gotham
+	pet.TextSize = 12
+	pet.TextXAlignment = Enum.TextXAlignment.Right
+	pet.TextColor3 = Color3.fromRGB(120, 220, 200)
+	pet.TextStrokeTransparency = 0.7
+	pet.Parent = panel
+	ui.pet = pet
 end
 
 -- A barra enche ate o proximo upgrade. Dinheiro nao tem teto, entao sem uma meta
@@ -203,6 +227,8 @@ local function refresh()
 	ui.stage.Text = currentPlaceName()
 	ui.wins.Text = ("%s vitorias"):format(formatNumber(state.wins))
 	ui.damage.Text = ("%s de dano por clique"):format(formatNumber(GameConfig.GetClickDamage(state)))
+	ui.rebirth.Text = ("Rebirth %d"):format(state.rebirths)
+	ui.pet.Text = if state.equippedPet then ("Pet: %s"):format(GameConfig.Pets[state.equippedPet].displayName) else "Pet: nenhum"
 
 	local goal = nextUpgradeCost()
 	if goal then
