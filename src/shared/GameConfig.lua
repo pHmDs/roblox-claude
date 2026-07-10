@@ -182,6 +182,24 @@ GameConfig.Lobby = {
 	gateHeight = 12,
 }
 
+-- ---------------------------------------------------------------------------
+-- Loja de personagens: pedestais fisicos no Lobby, um por personagem
+-- compravel. Fica ENTRE o pad de spawn e o portao, fora da faixa central
+-- (X perto de 0) por onde se anda do spawn ao portao — ver tools/BuildMap.lua.
+-- ---------------------------------------------------------------------------
+GameConfig.CharacterShop = {
+	rowOffsetZ = 6, -- relativo a Lobby.centerZ; entre o pad (-18) e o portao (+30)
+	columnOffsetX = 18, -- afasta os pedestais da faixa central por onde se caminha
+	pairSpacingZ = 12, -- distancia em Z entre pares consecutivos, se houver mais personagens
+	pedestalSize = Vector3.new(4, 2, 4),
+	-- Boneco vitrine: menor que o inimigo (Map.enemyBodySize) de proposito —
+	-- aqui e so exposicao, nao precisa intimidar.
+	figureBodySize = Vector3.new(2.4, 3.6, 2.4),
+	figureHeadSize = 1.8,
+	promptHoldSeconds = 1, -- segurar por 1s: rapido, mas evita compra encostando de raspao
+	promptMaxActivationDistance = 10, -- precisa chegar perto do pedestal, nao da pra comprar de longe
+}
+
 function GameConfig.GetLobbySpawn(): Vector3
 	local top = GameConfig.Lobby.size.Y / 2
 	return Vector3.new(0, top + 3, GameConfig.Lobby.centerZ + GameConfig.Lobby.spawnOffsetZ)

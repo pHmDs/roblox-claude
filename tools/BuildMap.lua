@@ -323,6 +323,127 @@ table.insert(created, ("Lobby: plataforma em z=%d, spawn z=%d, portao z=%d")
 	:format(LOBBY.centerZ, lobbySpawn.Z, lobbyFrontZ))
 
 -- ---------------------------------------------------------------------------
+-- Loja de personagens: um pedestal com boneco-vitrine por personagem
+-- compravel, entre o pad de spawn e o portao (ver GameConfig.CharacterShop).
+-- ---------------------------------------------------------------------------
+
+local SHOP = GameConfig.CharacterShop
+
+-- Dicionario -> lista ordenada pelo campo `order` (mesmo criterio usado em
+-- ShopController.lua; duplicado aqui porque este script roda isolado, sem
+-- um modulo utilitario compartilhado).
+local function sortedCharacterIds()
+	local ids = {}
+	for id in pairs(GameConfig.Characters) do
+		table.insert(ids, id)
+	end
+	table.sort(ids, function(a, b)
+		return GameConfig.Characters[a].order < GameConfig.Characters[b].order
+	end)
+	return ids
+end
+
+local function buildCharacterStall(id: string, cfg, position: Vector3): Model
+	local model = Instance.new("Model")
+	model.Name = "Stall_" .. id
+	model:SetAttribute("CharacterId", id)
+
+	local pedestal = newPart({
+		Name = "Pedestal",
+		Size = SHOP.pedestalSize,
+		Position = position + Vector3.new(0, SHOP.pedestalSize.Y / 2, 0),
+		Color = Color3.fromRGB(90, 90, 100),
+		Material = Enum.Material.Marble,
+		CanCollide = true,
+	})
+	pedestal.Parent = model
+
+	local bodySize = SHOP.figureBodySize
+	local headSize = SHOP.figureHeadSize
+	local figureBaseY = position.Y + SHOP.pedestalSize.Y
+	local bodyY = figureBaseY + bodySize.Y / 2
+	local headY = figureBaseY + bodySize.Y + headSize / 2
+
+	local body = newPart({
+		Name = "Body",
+		Size = bodySize,
+		Position = Vector3.new(position.X, bodyY, position.Z),
+		Color = cfg.color,
+		Material = Enum.Material.SmoothPlastic,
+		CanCollide = false,
+	})
+	body.Parent = model
+
+	local head = newPart({
+		Name = "Head",
+		Size = Vector3.new(headSize, headSize, headSize),
+		Position = Vector3.new(position.X, headY, position.Z),
+		Color = cfg.color,
+		Material = Enum.Material.SmoothPlastic,
+		CanCollide = false,
+	})
+	head.Parent = model
+
+	local eyes = newPart({
+		Name = "Eyes",
+		Size = Vector3.new(headSize * 0.72, 0.4, 0.2),
+		Position = Vector3.new(position.X, headY + 0.3, position.Z - (headSize / 2 + 0.1)),
+		Color = Color3.fromRGB(20, 20, 20),
+		Material = Enum.Material.SmoothPlastic,
+		CanCollide = false,
+	})
+	eyes.Parent = model
+
+	model.PrimaryPart = pedestal
+
+	local nameplate = Instance.new("BillboardGui")
+	nameplate.Name = "Nameplate"
+	nameplate.Size = UDim2.fromOffset(160, 30)
+	nameplate.StudsOffsetWorldSpace = Vector3.new(0, headY - position.Y + 1.2, 0)
+	nameplate.AlwaysOnTop = true
+	nameplate.MaxDistance = 90
+	nameplate.Parent = pedestal
+
+	local label = Instance.new("TextLabel")
+	label.Name = "CharacterName"
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 14
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextStrokeTransparency = 0.2
+	label.Text = cfg.displayName
+	label.Parent = nameplate
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "BuyPrompt"
+	prompt.HoldDuration = SHOP.promptHoldSeconds
+	prompt.MaxActivationDistance = SHOP.promptMaxActivationDistance
+	prompt.RequiresLineOfSight = false
+	prompt.ObjectText = cfg.displayName
+	prompt.ActionText = "Interagir"
+	prompt:SetAttribute("CharacterId", id)
+	prompt.Parent = pedestal
+
+	return model
+end
+
+local shopFolder = Instance.new("Folder")
+shopFolder.Name = "CharacterShop"
+shopFolder.Parent = lobbyFolder
+
+local stallIds = sortedCharacterIds()
+for index, id in ipairs(stallIds) do
+	local pairIndex = math.floor((index - 1) / 2)
+	local column = if (index - 1) % 2 == 0 then -SHOP.columnOffsetX else SHOP.columnOffsetX
+	local stallZ = LOBBY.centerZ + SHOP.rowOffsetZ + pairIndex * SHOP.pairSpacingZ
+	local stallPosition = Vector3.new(column, lobbyTop, stallZ)
+	buildCharacterStall(id, GameConfig.Characters[id], stallPosition).Parent = shopFolder
+end
+
+table.insert(created, ("Loja de personagens: %d pedestais no lobby, z~=%d"):format(#stallIds, LOBBY.centerZ + SHOP.rowOffsetZ))
+
+-- ---------------------------------------------------------------------------
 -- Ponte + muros.
 --
 -- Sem isto o mapa tem um buraco de design: as plataformas ficam a 40 studs uma

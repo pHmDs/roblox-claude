@@ -1,4 +1,5 @@
--- Loja: upgrades (dinheiro) e personagens (vitorias).
+-- Loja de upgrades (dinheiro). A loja de personagens virou fisica, nos
+-- pedestais do Lobby — ver CharacterShopController.lua.
 --
 -- Todo botao so PEDE. Quem decide preco, saldo e posse e o servidor, via
 -- RemoteFunction. Se a resposta for negativa, mostramos o motivo que ele deu.
@@ -14,7 +15,7 @@ local player = Players.LocalPlayer
 local ShopController = {}
 
 local state = nil
-local rows = { upgrades = {}, characters = {} }
+local rows = { upgrades = {} }
 local statusLabel = nil
 local panel = nil
 
@@ -127,30 +128,6 @@ local function refresh()
 			entry.button.AutoButtonColor = canAfford
 		end
 	end
-
-	for id, entry in pairs(rows.characters) do
-		local cfg = GameConfig.Characters[id]
-		local owned = table.find(state.characters, id) ~= nil
-		local equipped = state.equipped == id
-
-		entry.title.Text = cfg.displayName
-		entry.subtitle.Text = ("Dano x%.1f"):format(cfg.multiplier)
-
-		if equipped then
-			entry.button.Text = "EQUIPADO"
-			entry.button.BackgroundColor3 = Color3.fromRGB(60, 90, 160)
-			entry.button.AutoButtonColor = false
-		elseif owned then
-			entry.button.Text = "EQUIPAR"
-			entry.button.BackgroundColor3 = Color3.fromRGB(50, 150, 80)
-			entry.button.AutoButtonColor = true
-		else
-			local canAfford = state.wins >= cfg.cost
-			entry.button.Text = ("%d vitorias"):format(cfg.cost)
-			entry.button.BackgroundColor3 = if canAfford then Color3.fromRGB(180, 140, 40) else Color3.fromRGB(80, 60, 60)
-			entry.button.AutoButtonColor = canAfford
-		end
-	end
 end
 
 local function build()
@@ -169,7 +146,7 @@ local function build()
 	toggle.Font = Enum.Font.FredokaOne
 	toggle.TextSize = 20
 	toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-	toggle.Text = "LOJA"
+	toggle.Text = "UPGRADES"
 	toggle.Parent = gui
 
 	local toggleCorner = Instance.new("UICorner")
@@ -181,7 +158,7 @@ local function build()
 	panel.Active = true -- consome o clique: abrir a loja nao ataca inimigo
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
 	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromOffset(460, 420)
+	panel.Size = UDim2.fromOffset(460, 300)
 	panel.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
 	panel.BorderSizePixel = 0
 	panel.Visible = false
@@ -223,34 +200,6 @@ local function build()
 			local ok, err = Remotes.BuyUpgrade:InvokeServer(id)
 			if ok then
 				setStatus(("%s comprado!"):format(GameConfig.Upgrades[id].displayName), false)
-			else
-				setStatus(tostring(err), true)
-			end
-		end)
-	end
-
-	local charHeader = Instance.new("TextLabel")
-	charHeader.LayoutOrder = order
-	order += 1
-	charHeader.Size = UDim2.new(1, 0, 0, 30)
-	charHeader.BackgroundTransparency = 1
-	charHeader.Font = Enum.Font.FredokaOne
-	charHeader.TextSize = 24
-	charHeader.TextXAlignment = Enum.TextXAlignment.Left
-	charHeader.TextColor3 = Color3.fromRGB(255, 215, 80)
-	charHeader.Text = "PERSONAGENS"
-	charHeader.Parent = panel
-
-	for _, id in ipairs(sortedIds(GameConfig.Characters)) do
-		local entry = makeRow(panel, order)
-		order += 1
-		rows.characters[id] = entry
-		entry.button.Activated:Connect(function()
-			local owned = state and table.find(state.characters, id) ~= nil
-			local remote = if owned then Remotes.EquipCharacter else Remotes.BuyCharacter
-			local ok, err = remote:InvokeServer(id)
-			if ok then
-				setStatus(if owned then "Equipado!" else ("%s comprado!"):format(GameConfig.Characters[id].displayName), false)
 			else
 				setStatus(tostring(err), true)
 			end
