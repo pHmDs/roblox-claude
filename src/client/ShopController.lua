@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+local Theme = require(ReplicatedStorage.Shared.Theme)
 local Remotes = ReplicatedStorage.Remotes
 
 local player = Players.LocalPlayer
@@ -45,7 +46,7 @@ local function setStatus(text: string, isError: boolean)
 		return
 	end
 	statusLabel.Text = text
-	statusLabel.TextColor3 = if isError then Color3.fromRGB(255, 120, 120) else Color3.fromRGB(120, 230, 130)
+	statusLabel.TextColor3 = if isError then Theme.Colors.danger else Theme.Colors.safe
 	task.delay(2.5, function()
 		if statusLabel and statusLabel.Text == text then
 			statusLabel.Text = ""
@@ -57,7 +58,7 @@ local function makeRow(parent: Instance, order: number)
 	local row = Instance.new("Frame")
 	row.LayoutOrder = order
 	row.Size = UDim2.new(1, 0, 0, 56)
-	row.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+	row.BackgroundColor3 = Theme.Colors.surface
 	row.BorderSizePixel = 0
 	row.Parent = parent
 
@@ -89,7 +90,7 @@ local function makeRow(parent: Instance, order: number)
 	button.AnchorPoint = Vector2.new(1, 0.5)
 	button.Position = UDim2.new(1, -10, 0.5, 0)
 	button.Size = UDim2.fromOffset(112, 36)
-	button.BackgroundColor3 = Color3.fromRGB(50, 150, 80)
+	button.BackgroundColor3 = Theme.Colors.safe
 	button.BorderSizePixel = 0
 	button.Font = Enum.Font.GothamBold
 	button.TextSize = 13
@@ -119,12 +120,12 @@ local function refresh()
 
 		if maxed then
 			entry.button.Text = "MAXIMO"
-			entry.button.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+			entry.button.BackgroundColor3 = Theme.Colors.surfaceRaised
 			entry.button.AutoButtonColor = false
 		else
 			local canAfford = state.money >= cost
 			entry.button.Text = ("R$ %s"):format(formatNumber(cost))
-			entry.button.BackgroundColor3 = if canAfford then Color3.fromRGB(50, 150, 80) else Color3.fromRGB(80, 60, 60)
+			entry.button.BackgroundColor3 = if canAfford then Theme.Colors.safe else Theme.WithAlpha(Theme.Colors.danger, 0.55)
 			entry.button.AutoButtonColor = canAfford
 		end
 	end
@@ -141,7 +142,7 @@ local function build()
 	toggle.AnchorPoint = Vector2.new(0, 1)
 	toggle.Position = UDim2.new(0, 16, 1, -16)
 	toggle.Size = UDim2.fromOffset(140, 46)
-	toggle.BackgroundColor3 = Color3.fromRGB(180, 140, 40)
+	toggle.BackgroundColor3 = Theme.Colors.gold
 	toggle.BorderSizePixel = 0
 	toggle.Font = Enum.Font.FredokaOne
 	toggle.TextSize = 20
@@ -159,7 +160,7 @@ local function build()
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
 	panel.Position = UDim2.fromScale(0.5, 0.5)
 	panel.Size = UDim2.fromOffset(460, 300)
-	panel.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+	panel.BackgroundColor3 = Theme.Colors.background
 	panel.BorderSizePixel = 0
 	panel.Visible = false
 	panel.Parent = gui
@@ -187,7 +188,7 @@ local function build()
 	header.Font = Enum.Font.FredokaOne
 	header.TextSize = 24
 	header.TextXAlignment = Enum.TextXAlignment.Left
-	header.TextColor3 = Color3.fromRGB(255, 215, 80)
+	header.TextColor3 = Theme.Colors.gold
 	header.Text = "UPGRADES"
 	header.Parent = panel
 

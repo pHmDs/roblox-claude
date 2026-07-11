@@ -9,6 +9,7 @@ local StarterGui = game:GetService("StarterGui")
 local Workspace = game:GetService("Workspace")
 
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+local Theme = require(ReplicatedStorage.Shared.Theme)
 local Remotes = ReplicatedStorage.Remotes
 
 local player = Players.LocalPlayer
@@ -93,7 +94,7 @@ local function makeRow(parent: Instance, order: number)
 	local row = Instance.new("Frame")
 	row.LayoutOrder = order
 	row.Size = UDim2.new(1, 0, 0, 56)
-	row.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+	row.BackgroundColor3 = Theme.Colors.surface
 	row.BorderSizePixel = 0
 	row.Parent = parent
 
@@ -125,7 +126,7 @@ local function makeRow(parent: Instance, order: number)
 	button.AnchorPoint = Vector2.new(1, 0.5)
 	button.Position = UDim2.new(1, -10, 0.5, 0)
 	button.Size = UDim2.fromOffset(112, 36)
-	button.BackgroundColor3 = Color3.fromRGB(50, 150, 80)
+	button.BackgroundColor3 = Theme.Colors.pet
 	button.BorderSizePixel = 0
 	button.Font = Enum.Font.GothamBold
 	button.TextSize = 13
@@ -159,15 +160,15 @@ local function refreshPanel()
 
 		if not owned then
 			entry.button.Text = "BLOQUEADO"
-			entry.button.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+			entry.button.BackgroundColor3 = Theme.Colors.surfaceRaised
 			entry.button.AutoButtonColor = false
 		elseif equipped then
 			entry.button.Text = "EQUIPADO"
-			entry.button.BackgroundColor3 = Color3.fromRGB(60, 90, 160)
+			entry.button.BackgroundColor3 = Theme.Colors.pet
 			entry.button.AutoButtonColor = false
 		else
 			entry.button.Text = "EQUIPAR"
-			entry.button.BackgroundColor3 = Color3.fromRGB(50, 150, 80)
+			entry.button.BackgroundColor3 = Theme.Colors.safe
 			entry.button.AutoButtonColor = true
 		end
 	end
@@ -184,7 +185,7 @@ local function buildHud()
 	toggle.AnchorPoint = Vector2.new(0, 1)
 	toggle.Position = UDim2.new(0, 166, 1, -16)
 	toggle.Size = UDim2.fromOffset(140, 46)
-	toggle.BackgroundColor3 = Color3.fromRGB(90, 150, 180)
+	toggle.BackgroundColor3 = Theme.Colors.pet
 	toggle.BorderSizePixel = 0
 	toggle.Font = Enum.Font.FredokaOne
 	toggle.TextSize = 20
@@ -202,7 +203,7 @@ local function buildHud()
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
 	panel.Position = UDim2.fromScale(0.5, 0.5)
 	panel.Size = UDim2.fromOffset(460, 260)
-	panel.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+	panel.BackgroundColor3 = Theme.Colors.background
 	panel.BorderSizePixel = 0
 	panel.Visible = false
 	panel.Parent = gui
@@ -230,7 +231,7 @@ local function buildHud()
 	header.Font = Enum.Font.FredokaOne
 	header.TextSize = 24
 	header.TextXAlignment = Enum.TextXAlignment.Left
-	header.TextColor3 = Color3.fromRGB(255, 215, 80)
+	header.TextColor3 = Theme.Colors.pet
 	header.Text = "PETS"
 	header.Parent = panel
 

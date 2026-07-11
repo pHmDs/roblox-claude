@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+local Theme = require(ReplicatedStorage.Shared.Theme)
 local Remotes = ReplicatedStorage.Remotes
 
 local player = Players.LocalPlayer
@@ -39,7 +40,7 @@ local function refreshWorld()
 				local open = state.stage >= unlocks
 				barrier.CanCollide = not open
 				barrier.Transparency = if open then 0.9 else 0.5
-				barrier.Color = if open then Color3.fromRGB(80, 200, 100) else Color3.fromRGB(220, 60, 60)
+				barrier.Color = if open then Theme.Colors.safe else Theme.Colors.danger
 
 				local label = barrier:FindFirstChild("BarrierLabel")
 				local text = label and label:FindFirstChild("Text")
@@ -57,7 +58,7 @@ local function refreshWorld()
 				local quota = GameConfig.GetQuota(stageIndex)
 				local progress = state.stageProgress[tostring(stageIndex)] or 0
 				local ready = progress >= quota
-				pad.Color = if ready then Color3.fromRGB(255, 215, 80) else Color3.fromRGB(70, 70, 80)
+				pad.Color = if ready then Theme.Colors.gold else Theme.Colors.stoneDark
 
 				local padLabel = pad:FindFirstChild("PadLabel")
 				local text = padLabel and padLabel:FindFirstChild("Text")
@@ -115,7 +116,7 @@ local function showPopup(info)
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
 	panel.Position = UDim2.fromScale(0.5, 0.5)
 	panel.Size = UDim2.fromOffset(340, 230)
-	panel.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+	panel.BackgroundColor3 = Theme.Colors.background
 	panel.BorderSizePixel = 0
 	panel.Parent = gui
 
@@ -140,7 +141,7 @@ local function showPopup(info)
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.FredokaOne
 	title.TextSize = 30
-	title.TextColor3 = Color3.fromRGB(255, 215, 80)
+	title.TextColor3 = Theme.Colors.gold
 	title.Text = "+1 VITORIA!"
 	title.Parent = panel
 
@@ -150,7 +151,7 @@ local function showPopup(info)
 	subtitle.BackgroundTransparency = 1
 	subtitle.Font = Enum.Font.Gotham
 	subtitle.TextSize = 15
-	subtitle.TextColor3 = Color3.fromRGB(200, 205, 220)
+	subtitle.TextColor3 = Theme.Colors.textMuted
 	subtitle.Text = ("Total: %d vitorias"):format(info.wins)
 	subtitle.Parent = panel
 
@@ -165,7 +166,7 @@ local function showPopup(info)
 			panel,
 			if info.canAdvance then "Avancar para o proximo estagio" else ("Precisa de %d vitorias"):format(info.winsRequired),
 			4,
-			if info.canAdvance then Color3.fromRGB(50, 150, 80) else Color3.fromRGB(70, 70, 80)
+			if info.canAdvance then Theme.Colors.safe else Theme.Colors.surfaceRaised
 		)
 		forward.AutoButtonColor = info.canAdvance
 		forward.Activated:Connect(function()

@@ -8,6 +8,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+local Theme = require(ReplicatedStorage.Shared.Theme)
 local Remotes = ReplicatedStorage.Remotes
 
 local player = Players.LocalPlayer
@@ -75,7 +76,7 @@ local function buildRightCorner(gui: ScreenGui)
 	panel.AnchorPoint = Vector2.new(1, 0)
 	panel.Position = UDim2.new(1, -16, 0, 14)
 	panel.Size = UDim2.fromOffset(190, 96)
-	panel.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+	panel.BackgroundColor3 = Theme.Colors.background
 	panel.BackgroundTransparency = 0.3
 	panel.BorderSizePixel = 0
 	panel.Parent = gui
@@ -99,7 +100,7 @@ local function buildRightCorner(gui: ScreenGui)
 	wins.Font = Enum.Font.FredokaOne
 	wins.TextSize = 22
 	wins.TextXAlignment = Enum.TextXAlignment.Right
-	wins.TextColor3 = Color3.fromRGB(255, 210, 90)
+	wins.TextColor3 = Theme.Colors.gold
 	wins.TextStrokeTransparency = 0.6
 	wins.Parent = panel
 	ui.wins = wins
@@ -123,7 +124,7 @@ local function buildRightCorner(gui: ScreenGui)
 	rebirth.Font = Enum.Font.Gotham
 	rebirth.TextSize = 12
 	rebirth.TextXAlignment = Enum.TextXAlignment.Right
-	rebirth.TextColor3 = Color3.fromRGB(200, 150, 255)
+	rebirth.TextColor3 = Theme.Colors.rebirth
 	rebirth.TextStrokeTransparency = 0.7
 	rebirth.Parent = panel
 	ui.rebirth = rebirth
@@ -135,7 +136,7 @@ local function buildRightCorner(gui: ScreenGui)
 	pet.Font = Enum.Font.Gotham
 	pet.TextSize = 12
 	pet.TextXAlignment = Enum.TextXAlignment.Right
-	pet.TextColor3 = Color3.fromRGB(120, 220, 200)
+	pet.TextColor3 = Theme.Colors.pet
 	pet.TextStrokeTransparency = 0.7
 	pet.Parent = panel
 	ui.pet = pet
@@ -149,7 +150,7 @@ local function buildMoneyBar(gui: ScreenGui)
 	back.AnchorPoint = Vector2.new(0.5, 1)
 	back.Position = UDim2.new(0.5, 0, 1, -22)
 	back.Size = UDim2.fromOffset(420, 44)
-	back.BackgroundColor3 = Color3.fromRGB(16, 16, 22)
+	back.BackgroundColor3 = Theme.Colors.background
 	back.BackgroundTransparency = 0.15
 	back.BorderSizePixel = 0
 	back.Parent = gui
@@ -172,7 +173,7 @@ local function buildMoneyBar(gui: ScreenGui)
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
 	fill.Size = UDim2.fromScale(0, 1)
-	fill.BackgroundColor3 = Color3.fromRGB(70, 180, 95)
+	fill.BackgroundColor3 = Theme.Colors.safe
 	fill.BackgroundTransparency = 0.35
 	fill.BorderSizePixel = 0
 	fill.Parent = clip

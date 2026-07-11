@@ -7,6 +7,13 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage.Shared.GameConfig)
+local Theme = require(ReplicatedStorage.Shared.Theme)
+
+-- Meshes gerados (generate_mesh) vivem como templates em ReplicatedStorage.Assets,
+-- criados uma vez fora deste script. Scripts de ferramenta nao tem permissao
+-- pra ESCREVER MeshId direto num MeshPart novo (capability NotAccessible) —
+-- por isso aqui SEMPRE se clona o template em vez de criar do zero.
+local Assets = ReplicatedStorage:WaitForChild("Assets")
 
 local MAP = GameConfig.Map
 
@@ -30,6 +37,112 @@ local function newPart(props)
 	return part
 end
 
+-- Clona o MeshPart-template (ver Assets acima) em vez de criar um novo e
+-- escrever MeshId — essa escrita e bloqueada pra scripts de ferramenta.
+local function newMeshPart(templateName: string, props)
+	local template = Assets:WaitForChild(templateName)
+	local part = template:Clone()
+	part.Anchored = true
+	-- O template guarda a orientacao de onde foi gerado (nao necessariamente
+	-- "de frente"). Zera antes de aplicar props, pra Position nao herdar giro
+	-- nenhum — quem quiser girar de proposito passa Orientation em props.
+	part.Orientation = Vector3.new(0, 0, 0)
+	for key, value in pairs(props) do
+		part[key] = value
+	end
+	return part
+end
+
+-- Pad fino sob um objeto (pedestal/altar/ninho). Mesma linguagem visual dos
+-- pads de spawn/vitoria, so que marcando qual SISTEMA aquele objeto pertence
+-- (ver Theme.lua) em vez de estado de jogo. SmoothPlastic, nao Neon — Neon em
+-- tudo quanto e bloco decorativo deixava a cena "lavada" de brilho.
+local function addAccentPad(parent: Instance, center: Vector3, footprint: Vector3, color: Color3)
+	local pad = newPart({
+		Name = "AccentPad",
+		Size = Vector3.new(footprint.X + 1.5, 0.3, footprint.Z + 1.5),
+		Position = center + Vector3.new(0, 0.15, 0),
+		Color = color,
+		Material = Enum.Material.SmoothPlastic,
+		CanCollide = false,
+	})
+	pad.Parent = parent
+end
+
+-- Moldura fina nas bordas de uma plataforma — da a leitura de "arena" sem
+-- precisar de mesh nenhum, so 4 tiras finas encostadas na borda. SmoothPlastic
+-- de proposito (ver addAccentPad acima): so o essencial continua em Neon.
+local function addEdgeTrim(parent: Instance, center: Vector3, size: Vector3, topY: number, color: Color3)
+	local t = Theme.TrimThickness
+	local halfX, halfZ = size.X / 2, size.Z / 2
+	local specs = {
+		{ name = "TrimFront", pos = Vector3.new(center.X, topY, center.Z + halfZ - t / 2), sz = Vector3.new(size.X, 0.2, t) },
+		{ name = "TrimBack", pos = Vector3.new(center.X, topY, center.Z - halfZ + t / 2), sz = Vector3.new(size.X, 0.2, t) },
+		{ name = "TrimLeft", pos = Vector3.new(center.X - halfX + t / 2, topY, center.Z), sz = Vector3.new(t, 0.2, size.Z) },
+		{ name = "TrimRight", pos = Vector3.new(center.X + halfX - t / 2, topY, center.Z), sz = Vector3.new(t, 0.2, size.Z) },
+	}
+	for _, spec in ipairs(specs) do
+		local trim = newPart({
+			Name = spec.name,
+			Size = spec.sz,
+			Position = spec.pos,
+			Color = color,
+			Material = Enum.Material.SmoothPlastic,
+			CanCollide = false,
+		})
+		trim.Parent = parent
+	end
+end
+
+-- ---------------------------------------------------------------------------
+-- Meshes gerados (generate_mesh). Um mesh por IDENTIDADE, reaproveitado em
+-- todo lugar que essa identidade aparece — o Skibidi Toilet e o mesmo mesh no
+-- pedestal da loja E no inimigo do Estagio 1, o Tralalero idem no Estagio 2.
+-- baseSize e o bounding box que o gerador devolveu; scaledMeshSize usa isso
+-- pra escalar mantendo a proporcao, em vez de esticar o mesh fora de forma.
+-- ---------------------------------------------------------------------------
+
+local CHARACTER_MESHES = {
+	Skibidi = {
+		template = "SkibidiMesh",
+		baseSize = Vector3.new(3, 3.2599472999572754, 1.849306344985962),
+	},
+	Tralalero = {
+		template = "TralaleroMesh",
+		baseSize = Vector3.new(2.9090068340301514, 4.407373428344727, 3),
+	},
+}
+
+-- Que personagem cada estagio "e", visualmente: o inimigo do Estagio 1 e o
+-- Skibidi, o do Estagio 2 e o Tralalero — os mesmos dois personagens
+-- compraveis na loja (GameConfig.Characters). Por isso reaproveitam o mesmo
+-- mesh em vez de cada lugar ter o seu.
+local STAGE_CHARACTER_ID = {
+	[1] = "Skibidi",
+	[2] = "Tralalero",
+}
+
+local PET_EGG_MESH = {
+	template = "PetEggMesh",
+	baseSize = Vector3.new(2.994830846786499, 4, 2.9738121032714844),
+}
+
+-- Terreno decorativo que emoldura o corredor (ver "Ponte + muros" mais
+-- abaixo): penhasco em blocos, estilo voxel — igual ao jogo de referencia do
+-- usuario, nao montanha lisa. Ver buildBlockyRidge.
+local RIDGE = {
+	voxel = 6, -- tamanho do "cubo" base — tudo se alinha nesse grid
+	colorsLow = { Color3.fromRGB(120, 45, 42), Color3.fromRGB(150, 62, 52) }, -- terra/rocha em duas tonalidades, alternadas por coluna
+	grass = Color3.fromRGB(95, 195, 75),
+	trunkColor = Color3.fromRGB(110, 75, 45),
+	leafColor = Color3.fromRGB(70, 175, 70),
+}
+
+local function scaledMeshSize(meshCfg, targetHeight: number): Vector3
+	local scale = targetHeight / meshCfg.baseSize.Y
+	return meshCfg.baseSize * scale
+end
+
 -- O inimigo persegue e machuca (ver EnemyAI), mas continua ancorado e sem
 -- colisao: quem o move e o servidor, por CFrame, nao a fisica.
 -- CanCollide=false de proposito — quando voce mata, o SEU cliente esconde o
@@ -38,48 +151,57 @@ local function buildEnemy(stageIndex: number, index: number, position: Vector3, 
 	local model = Instance.new("Model")
 	model.Name = ("Enemy_%d_%d"):format(stageIndex, index)
 
-	-- A cabeca se apoia no topo do corpo; os olhos, na frente dela. Tudo derivado
-	-- do tamanho, para o boneco continuar inteiro se ele encolher de novo.
-	local bodySize = MAP.enemyBodySize
-	local headSize = MAP.enemyHeadSize
-	local headY = bodySize.Y / 2 + headSize / 2
+	local characterId = STAGE_CHARACTER_ID[stageIndex]
+	local meshCfg = characterId and CHARACTER_MESHES[characterId]
+	assert(meshCfg, ("Estagio %d sem mesh de personagem associado em STAGE_CHARACTER_ID"):format(stageIndex))
 
-	local body = newPart({
+	local figureSize = scaledMeshSize(meshCfg, MAP.enemyBodySize.Y + MAP.enemyHeadSize)
+	local bodyY = position.Y + figureSize.Y / 2
+	local topY = position.Y + figureSize.Y
+
+	local body = newMeshPart(meshCfg.template, {
 		Name = "Body",
-		Size = bodySize,
-		Position = position,
-		Color = stageCfg.enemyColor,
-		Material = Enum.Material.SmoothPlastic,
+		Size = figureSize,
+		Position = Vector3.new(position.X, bodyY, position.Z),
 		CanCollide = false,
 	})
 	body.Parent = model
 
+	-- Ancora invisivel: EnemyVisuals.lua (cliente) espera um filho chamado
+	-- "Head" pra pendurar a nameplate/barra de vida. O visual de verdade
+	-- agora e o mesh inteiro em Body — Head so marca "onde fica a placa".
 	local head = newPart({
 		Name = "Head",
-		Size = Vector3.new(headSize, headSize, headSize),
-		Position = position + Vector3.new(0, headY, 0),
-		Color = stageCfg.enemyColor,
-		Material = Enum.Material.SmoothPlastic,
+		Size = Vector3.new(0.4, 0.4, 0.4),
+		Position = Vector3.new(position.X, topY + 0.3, position.Z),
+		Transparency = 1,
 		CanCollide = false,
+		CanQuery = false,
 	})
 	head.Parent = model
 
-	local eyes = newPart({
+	-- "Eyes" nao sao mais literalmente olhos: agora e um brilho de acento perto
+	-- do topo do mesh. O nome fica por compatibilidade — EnemyVisuals espera
+	-- ALGUM filho com esse nome logo na criacao, senao trava 5s antes de
+	-- desenhar a barra de vida (WaitForChild com timeout).
+	local glow = newPart({
 		Name = "Eyes",
-		Size = Vector3.new(headSize * 0.72, 0.45, 0.2),
-		Position = position + Vector3.new(0, headY + 0.4, -(headSize / 2 + 0.1)),
-		Color = Color3.fromRGB(20, 20, 20),
-		Material = Enum.Material.SmoothPlastic,
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(0.5, 0.5, 0.5),
+		Position = Vector3.new(position.X, topY - figureSize.Y * 0.16, position.Z),
+		Color = Theme.Colors.danger,
+		Material = Enum.Material.Neon,
 		CanCollide = false,
+		CanQuery = false,
 	})
-	eyes.Parent = model
+	glow.Parent = model
 
 	model.PrimaryPart = body
 
 	local nameplate = Instance.new("BillboardGui")
 	nameplate.Name = "Nameplate"
 	nameplate.Size = UDim2.fromOffset(140, 38)
-	nameplate.StudsOffsetWorldSpace = Vector3.new(0, headY - 0.6, 0)
+	nameplate.StudsOffsetWorldSpace = Vector3.new(0, 0.6, 0)
 	nameplate.AlwaysOnTop = true
 	nameplate.MaxDistance = 90
 	nameplate.Parent = head
@@ -124,11 +246,15 @@ for stageIndex = 1, GameConfig.MaxStage do
 		Name = "Platform",
 		Size = MAP.platformSize,
 		Position = origin,
-		Color = stageCfg.enemyColor:Lerp(Color3.fromRGB(40, 40, 45), 0.7),
-		Material = Enum.Material.Slate,
+		Color = Theme.Colors.stone:Lerp(stageCfg.enemyColor, 0.55),
+		Material = Enum.Material.SmoothPlastic,
 		CanCollide = true,
 	})
 	platform.Parent = stageFolder
+
+	-- Moldura neon com a cor do inimigo do estagio: identidade visual clara
+	-- de longe, mesmo antes de ver o boneco.
+	addEdgeTrim(stageFolder, origin, MAP.platformSize, top + 0.03, stageCfg.enemyColor)
 
 	-- Ponto de nascimento / retorno deste estagio.
 	local spawnPos = Vector3.new(origin.X, top + 3, origin.Z + MAP.spawnOffset.Z)
@@ -136,7 +262,7 @@ for stageIndex = 1, GameConfig.MaxStage do
 		Name = "SpawnPad",
 		Size = Vector3.new(14, 1, 14),
 		Position = spawnPos - Vector3.new(0, 2.5, 0),
-		Color = Color3.fromRGB(90, 200, 120),
+		Color = Theme.Colors.safe,
 		Material = Enum.Material.Neon,
 		CanCollide = true,
 	})
@@ -163,12 +289,14 @@ for stageIndex = 1, GameConfig.MaxStage do
 		end
 	end
 
-	-- Pad de vitoria: apagado ate voce bater a cota do estagio.
+	-- Pad de vitoria: apagado ate voce bater a cota do estagio. A cor real
+	-- (cinza -> dourado) e controlada ao vivo por StageController.lua; isto
+	-- aqui e so o estado inicial "apagado".
 	local winPad = newPart({
 		Name = "WinPad",
 		Size = Vector3.new(14, 1, 14),
 		Position = Vector3.new(origin.X, top + 0.5, origin.Z + MAP.winPadOffset.Z),
-		Color = Color3.fromRGB(70, 70, 80),
+		Color = Theme.Colors.stoneDark,
 		Material = Enum.Material.Neon,
 		CanCollide = false,
 	})
@@ -193,14 +321,15 @@ for stageIndex = 1, GameConfig.MaxStage do
 	padText.Text = "PAD DE VITORIA"
 	padText.Parent = padGui
 
-	-- Barreira de SAIDA: guarda a entrada do proximo estagio.
+	-- Barreira de SAIDA: guarda a entrada do proximo estagio. A cor real
+	-- (vermelho -> verde) tambem e controlada ao vivo por StageController.lua.
 	local nextStage = GameConfig.Stages[stageIndex + 1]
 	if nextStage then
 		local barrier = newPart({
 			Name = "Barrier",
 			Size = MAP.barrierSize,
 			Position = Vector3.new(origin.X, top + MAP.barrierOffset.Y, origin.Z + MAP.barrierOffset.Z),
-			Color = Color3.fromRGB(220, 60, 60),
+			Color = Theme.Colors.danger,
 			Material = Enum.Material.ForceField,
 			CanCollide = true,
 			Transparency = 0.5,
@@ -255,18 +384,23 @@ local lobbyPlatform = newPart({
 	Name = "Platform",
 	Size = LOBBY.size,
 	Position = Vector3.new(0, 0, LOBBY.centerZ),
-	Color = Color3.fromRGB(48, 50, 60),
-	Material = Enum.Material.Slate,
+	Color = Theme.Colors.stone,
+	Material = Enum.Material.SmoothPlastic,
 	CanCollide = true,
 })
 lobbyPlatform.Parent = lobbyFolder
+
+-- O lobby e o "hub": moldura dourada, a mesma cor da loja de personagens e
+-- do altar/ninho — marca ele como o lugar onde os sistemas de progressao
+-- vivem, em vez de arena de combate.
+addEdgeTrim(lobbyFolder, Vector3.new(0, 0, LOBBY.centerZ), LOBBY.size, lobbyTop + 0.03, Theme.Colors.gold)
 
 local lobbySpawn = GameConfig.GetLobbySpawn()
 local lobbyPad = newPart({
 	Name = "SpawnPad",
 	Size = Vector3.new(12, 1, 12),
 	Position = lobbySpawn - Vector3.new(0, 2.5, 0),
-	Color = Color3.fromRGB(90, 200, 120),
+	Color = Theme.Colors.safe,
 	Material = Enum.Material.Neon,
 	CanCollide = true,
 })
@@ -283,8 +417,8 @@ for _, side in ipairs({ -1, 1 }) do
 		Name = if side < 0 then "GatePillarLeft" else "GatePillarRight",
 		Size = Vector3.new(pillarWidth, LOBBY.gateHeight, 4),
 		Position = Vector3.new(side * (halfGate + pillarWidth / 2), lobbyTop + LOBBY.gateHeight / 2, lobbyFrontZ),
-		Color = Color3.fromRGB(70, 72, 84),
-		Material = Enum.Material.Slate,
+		Color = Theme.Colors.stoneDark,
+		Material = Enum.Material.SmoothPlastic,
 		CanCollide = true,
 	})
 	pillar.Parent = lobbyFolder
@@ -294,11 +428,24 @@ local lintel = newPart({
 	Name = "GateLintel",
 	Size = Vector3.new(LOBBY.size.X, 3, 4),
 	Position = Vector3.new(0, lobbyTop + LOBBY.gateHeight + 1.5, lobbyFrontZ),
-	Color = Color3.fromRGB(85, 88, 102),
-	Material = Enum.Material.Slate,
+	Color = Theme.Colors.stoneDark,
+	Material = Enum.Material.SmoothPlastic,
 	CanCollide = true,
 })
 lintel.Parent = lobbyFolder
+
+-- Tira por baixo da viga marcando a passagem. Dourada, igual a moldura do
+-- lobby — o portao e transicao do hub pra arena, nao perigo em si (quem marca
+-- perigo e a barreira vermelha la na frente). SmoothPlastic, nao Neon.
+local lintelGlow = newPart({
+	Name = "GateGlow",
+	Size = Vector3.new(LOBBY.gateWidth, 0.2, 0.6),
+	Position = Vector3.new(0, lobbyTop + LOBBY.gateHeight - 0.1, lobbyFrontZ - 1.7),
+	Color = Theme.Colors.gold,
+	Material = Enum.Material.SmoothPlastic,
+	CanCollide = false,
+})
+lintelGlow.Parent = lobbyFolder
 
 local gateGui = Instance.new("BillboardGui")
 gateGui.Name = "GateLabel"
@@ -348,58 +495,38 @@ local function buildCharacterStall(id: string, cfg, position: Vector3): Model
 	model.Name = "Stall_" .. id
 	model:SetAttribute("CharacterId", id)
 
+	addAccentPad(model, position, SHOP.pedestalSize, Theme.Colors.gold)
+
 	local pedestal = newPart({
 		Name = "Pedestal",
 		Size = SHOP.pedestalSize,
 		Position = position + Vector3.new(0, SHOP.pedestalSize.Y / 2, 0),
-		Color = Color3.fromRGB(90, 90, 100),
-		Material = Enum.Material.Marble,
+		Color = Theme.Colors.stoneDark:Lerp(Theme.Colors.gold, 0.5),
+		Material = Enum.Material.SmoothPlastic,
 		CanCollide = true,
 	})
 	pedestal.Parent = model
 
-	local bodySize = SHOP.figureBodySize
-	local headSize = SHOP.figureHeadSize
+	local meshCfg = CHARACTER_MESHES[id]
+	assert(meshCfg, ("Personagem %s sem mesh associado em CHARACTER_MESHES"):format(id))
+	local figureSize = scaledMeshSize(meshCfg, SHOP.figureBodySize.Y + SHOP.figureHeadSize)
 	local figureBaseY = position.Y + SHOP.pedestalSize.Y
-	local bodyY = figureBaseY + bodySize.Y / 2
-	local headY = figureBaseY + bodySize.Y + headSize / 2
+	local bodyY = figureBaseY + figureSize.Y / 2
 
-	local body = newPart({
+	local body = newMeshPart(meshCfg.template, {
 		Name = "Body",
-		Size = bodySize,
+		Size = figureSize,
 		Position = Vector3.new(position.X, bodyY, position.Z),
-		Color = cfg.color,
-		Material = Enum.Material.SmoothPlastic,
 		CanCollide = false,
 	})
 	body.Parent = model
-
-	local head = newPart({
-		Name = "Head",
-		Size = Vector3.new(headSize, headSize, headSize),
-		Position = Vector3.new(position.X, headY, position.Z),
-		Color = cfg.color,
-		Material = Enum.Material.SmoothPlastic,
-		CanCollide = false,
-	})
-	head.Parent = model
-
-	local eyes = newPart({
-		Name = "Eyes",
-		Size = Vector3.new(headSize * 0.72, 0.4, 0.2),
-		Position = Vector3.new(position.X, headY + 0.3, position.Z - (headSize / 2 + 0.1)),
-		Color = Color3.fromRGB(20, 20, 20),
-		Material = Enum.Material.SmoothPlastic,
-		CanCollide = false,
-	})
-	eyes.Parent = model
 
 	model.PrimaryPart = pedestal
 
 	local nameplate = Instance.new("BillboardGui")
 	nameplate.Name = "Nameplate"
 	nameplate.Size = UDim2.fromOffset(160, 30)
-	nameplate.StudsOffsetWorldSpace = Vector3.new(0, headY - position.Y + 1.2, 0)
+	nameplate.StudsOffsetWorldSpace = Vector3.new(0, (figureBaseY - position.Y) + figureSize.Y + 1.2, 0)
 	nameplate.AlwaysOnTop = true
 	nameplate.MaxDistance = 90
 	nameplate.Parent = pedestal
@@ -410,7 +537,7 @@ local function buildCharacterStall(id: string, cfg, position: Vector3): Model
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBold
 	label.TextSize = 14
-	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextColor3 = Theme.Colors.gold
 	label.TextStrokeTransparency = 0.2
 	label.Text = cfg.displayName
 	label.Parent = nameplate
@@ -454,12 +581,14 @@ local function buildRebirthAltar(position: Vector3): Model
 	local model = Instance.new("Model")
 	model.Name = "RebirthAltar"
 
+	addAccentPad(model, position, ALTAR.baseSize, Theme.Colors.rebirth)
+
 	local base = newPart({
 		Name = "Base",
 		Size = ALTAR.baseSize,
 		Position = position + Vector3.new(0, ALTAR.baseSize.Y / 2, 0),
-		Color = Color3.fromRGB(70, 60, 90),
-		Material = Enum.Material.Marble,
+		Color = Theme.Colors.stoneDark:Lerp(Theme.Colors.rebirth, 0.55),
+		Material = Enum.Material.SmoothPlastic,
 		CanCollide = true,
 	})
 	base.Parent = model
@@ -469,11 +598,17 @@ local function buildRebirthAltar(position: Vector3): Model
 		Name = "Obelisk",
 		Size = ALTAR.obeliskSize,
 		Position = Vector3.new(position.X, obeliskY, position.Z),
-		Color = Color3.fromRGB(160, 90, 230),
+		Color = Theme.Colors.rebirth,
 		Material = Enum.Material.Neon,
 		CanCollide = false,
 	})
 	obelisk.Parent = model
+
+	local light = Instance.new("PointLight")
+	light.Color = Theme.Colors.rebirth
+	light.Range = 16
+	light.Brightness = 1.5
+	light.Parent = obelisk
 
 	model.PrimaryPart = base
 
@@ -525,33 +660,40 @@ local function buildPetNest(position: Vector3): Model
 	local model = Instance.new("Model")
 	model.Name = "PetShop"
 
+	addAccentPad(model, position, PETSHOP.nestSize, Theme.Colors.pet)
+
 	local nest = newPart({
 		Name = "Nest",
 		Size = PETSHOP.nestSize,
 		Position = position + Vector3.new(0, PETSHOP.nestSize.Y / 2, 0),
-		Color = Color3.fromRGB(120, 85, 50),
+		Color = Color3.fromRGB(210, 150, 90), -- ninho de brinquedo, madeira clara e quente
 		Material = Enum.Material.Wood,
 		CanCollide = true,
 	})
 	nest.Parent = model
 
-	local eggY = position.Y + PETSHOP.nestSize.Y + PETSHOP.eggSize.Y / 2
-	local egg = newPart({
+	local eggSize = scaledMeshSize(PET_EGG_MESH, PETSHOP.eggSize.Y)
+	local eggY = position.Y + PETSHOP.nestSize.Y + eggSize.Y / 2
+	local egg = newMeshPart(PET_EGG_MESH.template, {
 		Name = "Egg",
-		Size = PETSHOP.eggSize,
+		Size = eggSize,
 		Position = Vector3.new(position.X, eggY, position.Z),
-		Color = Color3.fromRGB(240, 220, 180),
-		Material = Enum.Material.SmoothPlastic,
 		CanCollide = false,
 	})
 	egg.Parent = model
+
+	local light = Instance.new("PointLight")
+	light.Color = Theme.Colors.pet
+	light.Range = 12
+	light.Brightness = 1.2
+	light.Parent = egg
 
 	model.PrimaryPart = nest
 
 	local nameplate = Instance.new("BillboardGui")
 	nameplate.Name = "Nameplate"
 	nameplate.Size = UDim2.fromOffset(180, 30)
-	nameplate.StudsOffsetWorldSpace = Vector3.new(0, PETSHOP.nestSize.Y + PETSHOP.eggSize.Y + 1.5, 0)
+	nameplate.StudsOffsetWorldSpace = Vector3.new(0, PETSHOP.nestSize.Y + eggSize.Y + 1.5, 0)
 	nameplate.AlwaysOnTop = true
 	nameplate.MaxDistance = 90
 	nameplate.Parent = nest
@@ -612,8 +754,8 @@ local lobbyBridge = newPart({
 	Name = "BridgeLobby",
 	Size = Vector3.new(MAP.platformSize.X, MAP.platformSize.Y, (GameConfig.GetStageOrigin(1).Z - halfLength) - lobbyFrontZ),
 	Position = Vector3.new(0, 0, (lobbyFrontZ + (GameConfig.GetStageOrigin(1).Z - halfLength)) / 2),
-	Color = Color3.fromRGB(70, 70, 78),
-	Material = Enum.Material.Slate,
+	Color = Theme.Colors.stoneDark,
+	Material = Enum.Material.SmoothPlastic,
 	CanCollide = true,
 })
 lobbyBridge.Parent = structure
@@ -626,37 +768,134 @@ for stageIndex = 1, GameConfig.MaxStage - 1 do
 		Name = "Bridge" .. stageIndex,
 		Size = Vector3.new(MAP.platformSize.X, MAP.platformSize.Y, gapEnd - gapStart),
 		Position = Vector3.new(0, 0, (gapStart + gapEnd) / 2),
-		Color = Color3.fromRGB(70, 70, 78),
-		Material = Enum.Material.Slate,
+		Color = Theme.Colors.stoneDark,
+		Material = Enum.Material.SmoothPlastic,
 		CanCollide = true,
 	})
 	bridge.Parent = structure
 end
 
+-- As paredes retas viraram colisao invisivel: quem faz o corredor "parecer"
+-- fechado agora sao as montanhas decorativas logo abaixo. Sem isto o
+-- container de colisao teria que reproduzir a silhueta irregular das
+-- montanhas — mais simples manter a caixa reta, so que sem mostrar ela.
 local wallY = top + MAP.wallHeight / 2
 for _, side in ipairs({ -1, 1 }) do
 	local wall = newPart({
-		Name = if side < 0 then "WallLeft" else "WallRight",
+		Name = if side < 0 then "CollisionWallLeft" else "CollisionWallRight",
 		Size = Vector3.new(MAP.wallThickness, MAP.wallHeight, corridorLength),
 		Position = Vector3.new(side * (halfWidth + MAP.wallThickness / 2), wallY, corridorCenterZ),
-		Color = Color3.fromRGB(55, 55, 62),
-		Material = Enum.Material.Slate,
+		Transparency = 1,
 		CanCollide = true,
 	})
 	wall.Parent = structure
 end
 
-for _, cap in ipairs({ { name = "WallBack", z = firstZ - MAP.wallThickness / 2 }, { name = "WallFront", z = lastZ + MAP.wallThickness / 2 } }) do
+for _, cap in ipairs({ { name = "CollisionWallBack", z = firstZ - MAP.wallThickness / 2 }, { name = "CollisionWallFront", z = lastZ + MAP.wallThickness / 2 } }) do
 	local wall = newPart({
 		Name = cap.name,
 		Size = Vector3.new(MAP.platformSize.X + MAP.wallThickness * 2, MAP.wallHeight, MAP.wallThickness),
 		Position = Vector3.new(0, wallY, cap.z),
-		Color = Color3.fromRGB(55, 55, 62),
-		Material = Enum.Material.Slate,
+		Transparency = 1,
 		CanCollide = true,
 	})
 	wall.Parent = structure
 end
+
+-- ---------------------------------------------------------------------------
+-- Penhasco em blocos: moldura do corredor, estilo voxel (referencia visual
+-- que o usuario mandou — blocos vermelho-terrosos empilhados com grama por
+-- cima, nao montanha lisa). Cada "coluna" comeca ENCOSTADA no muro de colisao
+-- e cresce pra FORA do corredor, entao geometricamente nao tem como invadir
+-- o caminho — ao contrario do mesh redondo de antes, que precisava de conta
+-- fina de raio pra nao vazar.
+--
+-- CanCollide=true nos blocos (diferente da versao em mesh): sao solidos por
+-- natureza, e colidir de verdade reforça a leitura de "parede", nao so
+-- CollisionWall* preexistente.
+-- ---------------------------------------------------------------------------
+
+local function buildRidgeColumn(folder, name, innerX, sideSign, z, width)
+	local voxel = RIDGE.voxel
+	local depth = voxel * (1 + math.random(0, 2)) -- 1x, 2x ou 3x o voxel: face irregular, nao uma parede lisa
+	local layers = math.random(3, 11) -- altura em "andares" de voxel
+	local bodyHeight = math.max((layers - 1) * voxel, voxel)
+	local centerX = innerX + sideSign * (depth / 2)
+
+	local body = newPart({
+		Name = name .. "_Body",
+		Size = Vector3.new(depth, bodyHeight, width),
+		Position = Vector3.new(centerX, bodyHeight / 2, z),
+		Color = RIDGE.colorsLow[math.random(1, #RIDGE.colorsLow)],
+		Material = Enum.Material.SmoothPlastic,
+		CanCollide = true,
+	})
+	body.Parent = folder
+
+	local top = newPart({
+		Name = name .. "_Top",
+		Size = Vector3.new(depth, voxel, width),
+		Position = Vector3.new(centerX, bodyHeight + voxel / 2, z),
+		Color = RIDGE.grass,
+		Material = Enum.Material.SmoothPlastic,
+		CanCollide = true,
+	})
+	top.Parent = folder
+
+	-- Arvore ocasional em cima do bloco: tronco fino + copa em cubo,
+	-- bem Minecraft. So nas colunas mais altas, pra nao poluir a silhueta.
+	if layers >= 5 and math.random() < 0.3 then
+		local trunkHeight = voxel * 0.9
+		local trunkY = bodyHeight + voxel + trunkHeight / 2
+		local trunk = newPart({
+			Name = name .. "_Trunk",
+			Size = Vector3.new(voxel * 0.35, trunkHeight, voxel * 0.35),
+			Position = Vector3.new(centerX, trunkY, z),
+			Color = RIDGE.trunkColor,
+			Material = Enum.Material.SmoothPlastic,
+			CanCollide = false,
+		})
+		trunk.Parent = folder
+
+		local leaves = newPart({
+			Name = name .. "_Leaves",
+			Size = Vector3.new(voxel * 1.3, voxel * 1.1, voxel * 1.3),
+			Position = Vector3.new(centerX, trunkY + trunkHeight / 2 + voxel * 0.5, z),
+			Color = RIDGE.leafColor,
+			Material = Enum.Material.SmoothPlastic,
+			CanCollide = false,
+		})
+		leaves.Parent = folder
+	end
+end
+
+local function buildBlockyRidge()
+	local rangeFolder = Instance.new("Folder")
+	rangeFolder.Name = "Ridge"
+	rangeFolder.Parent = structure
+
+	local voxel = RIDGE.voxel
+	local startZ = corridorCenterZ - corridorLength / 2 - voxel
+	local endZ = corridorCenterZ + corridorLength / 2 + voxel
+	local innerX = halfWidth + MAP.wallThickness / 2 -- encosta exatamente no muro de colisao
+
+	local planted = 0
+	for _, side in ipairs({ -1, 1 }) do
+		local z = startZ
+		local index = 0
+		while z < endZ do
+			buildRidgeColumn(rangeFolder, ("Ridge_%d_%d"):format(side, index), side * innerX, side, z, voxel)
+			z += voxel
+			index += 1
+			planted += 1
+		end
+	end
+
+	return planted
+end
+
+local ridgePlanted = buildBlockyRidge()
+table.insert(created, ("Penhasco: %d colunas de blocos ao longo do corredor"):format(ridgePlanted))
 
 -- O SpawnLocation vive no LOBBY. E ele, e nao codigo de servidor, que faz toda
 -- morte devolver o jogador para la.
